@@ -16,7 +16,9 @@ Here's an evaluation of options and recommendations:
 - **Cons:**
   - Limited to supported databases/database versions (*< Postgresql 10 not supported*).
 - **Recommendation:**
-  - This method of PostgreSQL migration utilizes a publisher and subscriber model. This model is appropriate for any database size, with an established schema in the destination database, low downtime requirements, and engine compatibility.
+  - This PostgreSQL migration method utilizes a publisher and subscriber model, suitable for databases of any size with low downtime requirements and established schema compatibility. AWS DMS requires a replication instance whose cost varies based on instance class, size, and duration of usage. Data transfer fees apply for moving data to and from AWS DMS, charged based on data volume and region. Additional costs may arise for using extra resources like Kinesis Data Streams for CDC. Storage costs apply post-migration, varying based on database type and data volume in the target AWS database. DMS also charges for migration task creation and execution, with pricing based on task hours consumed, instance class, and region.
+
+![AWS DMS Solution](AWS_DMS.png)
 
 ## DB Snapshot and restore (pg_dump and pg_restore) + Comprinno (AWS Specialization Partner):
 - **Pros:**
@@ -26,7 +28,7 @@ Here's an evaluation of options and recommendations:
   - Requires careful planning to ensure consistency during the snapshot.
   - Not suitable for database sizes >100GB.
 - **Recommendation:**
-  - This method is straightforward utilizing pg_dump & pg_restore (*native PostgreSQL client utility*) for data migration and Comprinno for migration planning, however the downtime involved might not be acceptable for a database of this size.
+  - This method uses pg_dump and pg_restore for data migration, but the downtime may be intolerable for a database of this size. AWS charges for resource use during snapshot creation, such as EC2 or RDS instance costs, and data transmission charges may apply depending on the distance between the on-premise database and AWS. Additional storage charges for snapshots in Amazon S3 or EBS vary according on snapshot size and storage class.
 
 ## Snowball:
 - **Pros:**
@@ -36,13 +38,14 @@ Here's an evaluation of options and recommendations:
 - **Cons:**
   - Requires physical shipment of device, adds time to migration (*2-3 weeks arrival period & 1 week end-end transfer*).
 - **Recommendation:**
-  - This method is only viable in situations where there's  limited bandwidth or there's a need to migrate large volumes of data relatively quickly.
+  - This method is suitable for limited bandwidth scenarios or when migrating large volumes of data quickly. Costs include rental fees for the device (*charged per day*) and data transfer between the Snowball device and AWS services like S3 (*charged based on data amount*). Additional charges may apply for shipping the device. Due to the 20TB data size, longer transfer durations will incur higher rental fees and additional costs.
 
 ---
 
-My final recommendation: Given the size of your database, database engine, schema, and the necessity to minimize downtime, AWS DMS is the best option. AWS DMS provides convenience, ease of use, smooth database transition, and overall cost-effectiveness when compared to other transfer options, such as Snowball or Snowmobile.
+My final recommendation: Given the size of your database, data size, schema, and the necessity to minimize downtime, AWS DMS is the best option. AWS DMS provides convenience, ease of use, smooth database transition, and overall cost-effectiveness when compared to other transfer options, such as Snowball or Snowmobile.
 
-If the on-premise database contains features that are not supported by native AWS database choices, such as special extensions or custom configurations, the migration method will be considerably impacted. In such scenarios, a hybrid migration method becomes more advantageous, with DMS doing the initial data transfer and then using EC2 instances to perform manual modifications or data transformation to handle unsupported features. This adds more complexity to the migration process.
+
+If the on-premise database contains features not supported by native AWS choices, manual migration becomes advantageous for full control and customization. This involves running an EC2 instance, configuring it, and importing data. However, this adds complexity and downtime. To ensure resilience using AWS EC2, deploy instances across multiple availability zones, implement backups, configure secondary storage (e.g., S3, EBS), follow AWS security best practices, and conduct regular patches/updates on EC2 instances for compliance.
 
 ## Proof-of-concept (POC) plan for DMS solution:
 This plan is for testing the AWS Database Migration Service (DMS) solution which involves defining objectives, selecting a suitable environment, setting up the migration, executing tests, and evaluating the results.
@@ -72,18 +75,37 @@ This plan is for testing the AWS Database Migration Service (DMS) solution which
 10. Review & Decision:
     - Evaluate whether DMS meets migration requirements and consider alternative solutions if necessary.
 
-# Step-By-Step Implementation Plan
-1. Provision AWS account and resources required for the migration project (*VPC, subnets, DB subnets, security groups, NACLs*), and set IAM roles & permisssions for DMS access to other AWS resources.
-2. Analyze the source PostgreSQL 12 database schema and data to identify any unsupported features or custom configurations that may require conversion.
-3. Set up AWS DMS replication instance and endpoints (*source: PostgreSQL 12 database & target: RDS PostgreSQL 12 database*), and configure replication tasks for initial data load and ongoing replication.
-4. Establish a secure connectivity between on-premise database and AWS by leveraging Direct Connect (DX), configure security groups, NACLs, and ensure data encryption during transit and at rest.
-5. Initiate the migration task for initial data load, monitor data transfer progress and replication latency via AWS Management console or CLI.
-6. Validate data integrity and consistency between source and target databases.
-7. Conduct performance tests to assess data transfer speeds, latency. 
-8. Validate security & compliance with performance requirements.
-9. Optimize database performance on AWS by tuning parameters, indexing, and implementing best practices for database optimization.
-10. Implement backup and recovery procedures for the AWS database by leveraging AWS Backup, and test backup & restore processes to ensure data recoverability.
-11. Document the migration process, configurations, and best practices for knowledge sharing and future reference.
+# Step-By-Step Implementation Plan 
+---
+
+## Product Backlog Items/User Stories
+1. **Database Administrator** - Provisions AWS account and resources required for the migration project (*VPC, subnets, security groups, NACLs*), and set IAM roles & permisssions for DMS access to other AWS resources.
+2. **Database Engineer** - Analyzes the source PostgreSQL 12 database schema and data to identify any unsupported features or custom configurations that may require conversion.
+3. **Migration Specialist** - Sets up AWS DMS replication instance and endpoints (*source: PostgreSQL 12 database & target: RDS PostgreSQL 12 database*), and configures replication tasks for initial data load and ongoing replication.
+4. **Security Specialist** - Securely connects on-premise database to AWS using Internet Gateway or Direct Connect (*DX for a more private/dedicated connection*), configure security groups, NACLs, and enable data encryption in transit and at rest.
+5. **Database Administrator** - Initiates the migration task for initial data load, monitors progress and replication latency via AWS Management Console or CLI, and validates data integrity between source and target databases.
+6. **Performance Tester** - Conducts performance tests for data transfer speed and latency, and validates security and compliance with performance requirements.
+7. **Database Engineer** - Optimize database performance on AWS by tuning parameters, indexing, and implementing best practices for database optimization.
+8.  **Backup Administrator** - Implements backup and recovery procedures for the AWS database by leveraging AWS Backup, and tests backup & restore processes to ensure data recoverability.
+9.  **Documention Specialist** - Documents the migration process, configurations, and best practices for knowledge sharing and future reference.
+
+![AWS DMS Solution](AWS_DMS_Infrastructure.png)
+
+## Sprints
+- Sprint 1 (2 weeks):
+  - Setup AWS environment,
+  - Analyze source database schema and data.
+- Sprint 2 (2 weeks):
+  - Configure AWS DMS replication instance and endpoints,
+  - Establish network connectivity and security settings,
+  - Initiate initial data load migration task.
+- Sprint 3 (2 weeks):
+  - Monitor data transfer progress and replication latency,
+  - Conduct performance tests and validate data integrity,
+  - Optimize database performance on AWS.
+- Sprint 4 (2 weeks):
+  - Implement backup and recovery procedures,
+  - Review & Document migration process and configurations.
 
 
 
